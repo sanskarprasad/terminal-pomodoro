@@ -113,8 +113,8 @@ This usually indicates a terminal compatibility issue:
 
 3. **Reinstall if needed**:
    ```bash
-   npm uninstall -g terminal-pomodoro
-   npm install -g terminal-pomodoro
+   npm uninstall -g termdoro
+   npm install -g termdoro
    ```
 
 ### Notifications not working

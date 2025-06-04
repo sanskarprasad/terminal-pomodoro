@@ -1,5 +1,5 @@
 {
-  "name": "terminal-pomodoro",
+  "name": "termdoro",
   "version": "1.0.0",
   "description": "A terminal Pomodoro timer with gradient progress bar and desktop notifications",
   "main": "index.js",
