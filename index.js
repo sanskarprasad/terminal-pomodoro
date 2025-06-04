@@ -1,162 +1,148 @@
 #!/usr/bin/env node
 
-const inquirerModule = require('inquirer');
-const inquirer = inquirerModule.default || inquirerModule;
+// Simple Pomodoro Timer with command line arguments
+// Usage: node pomodoro.js [work_minutes] [break_minutes] [sessions]
+// Example: node pomodoro.js 25 5 4
+
 const notifier = require('node-notifier');
 
-// ANSI escape codes
-const RESET  = '\x1b[0m';
-const CYAN   = '\x1b[36m';
-const YELLOW = '\x1b[33m';
+const COLORS = {
+  RESET: '\x1b[0m',
+  CYAN: '\x1b[36m',
+  YELLOW: '\x1b[33m',
+  GREEN: '\x1b[32m'
+};
 
-// Width of the bar in characters
-const BAR_LENGTH = 30;
+function showUsage() {
+  console.log(`
+🍅 Pomodoro Timer
 
-async function main() {
-  let workMinutes, breakMinutes, sessions;
-  try {
-    // 1) Ask for work duration in minutes
-    ({ workMinutes } = await inquirer.prompt([{
-      type: 'input',
-      name: 'workMinutes',
-      message: 'Enter Pomodoro (work) duration in minutes:',
-      validate(val) {
-        const n = Number(val);
-        return (!isNaN(n) && n > 0) ? true : 'Please enter a positive number';
-      }
-    }]));
+Usage: node ${process.argv[1].split(/[\\/]/).pop()} [work_minutes] [break_minutes] [sessions]
 
-    // 2) Ask for break duration in minutes
-    ({ breakMinutes } = await inquirer.prompt([{
-      type: 'input',
-      name: 'breakMinutes',
-      message: 'Enter Break duration in minutes:',
-      validate(val) {
-        const n = Number(val);
-        return (!isNaN(n) && n > 0) ? true : 'Please enter a positive number';
-      }
-    }]));
-
-    // 3) Ask for number of sessions
-    ({ sessions } = await inquirer.prompt([{
-      type: 'input',
-      name: 'sessions',
-      message: 'Enter number of Pomodoro sessions:',
-      validate(val) {
-        const n = Number(val);
-        return (!isNaN(n) && n > 0 && Number.isInteger(Number(val)))
-          ? true
-          : 'Please enter a positive integer';
-      }
-    }]));
-  } catch (err) {
-    // User hit Ctrl+C during a prompt
-    process.stdout.write('\nPomodoro setup canceled.\n');
-    process.exit(0);
-  }
-
-  const workSeconds  = Number(workMinutes) * 60;
-  const breakSeconds = Number(breakMinutes) * 60;
-  const sessionCount = Number(sessions);
-
-  await runFullCycles(sessionCount, workSeconds, breakSeconds, workMinutes, breakMinutes);
-  process.stdout.write(`\n${CYAN}All ${sessionCount} session${sessionCount > 1 ? 's' : ''} complete! 🎉${RESET}\n\n`);
+Examples:
+  node pomodoro.js 25 5 4    # 25min work, 5min break, 4 sessions
+  node pomodoro.js 50 10 2   # 50min work, 10min break, 2 sessions
+  node pomodoro.js           # Default: 25min work, 5min break, 4 sessions
+`);
 }
 
-async function runFullCycles(count, workSec, breakSec, workMin, breakMin) {
-  for (let i = 1; i <= count; i++) {
-    process.stdout.write(`\n${CYAN}=== Session ${i} of ${count} ===${RESET}\n`);
-    await runTimer(workSec, 'Work', workMin);
-    if (i < count) {
-      await runTimer(breakSec, 'Break', breakMin);
-    }
-  }
+function formatTime(date) {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  const minute = m.toString().padStart(2, '0');
+  return `${hour}:${minute}${ampm}`;
 }
-
 
 function runTimer(totalSeconds, label, minutes) {
   return new Promise((resolve) => {
     let remaining = totalSeconds;
     const startTime = new Date();
-
-    // Format “HH:MM AM/PM”
-    function formatHourMinute(d) {
-      let h = d.getHours();
-      const m = d.getMinutes();
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 === 0 ? 12 : h % 12;
-      const mm = String(m).padStart(2, '0');
-      return `${h}:${mm}${ampm}`;
-    }
-
-    // Decide top label
-    const startLabel = label === 'Work'
-      ? '⏳ We are working 👨‍💻'
-      : '⏰ Break time 😌';
-
-    // ——— Print Header Line 1 (once) ———
-    process.stdout.write(`${startLabel}\n`);
-
-    // ——— Print Header Line 2 (once) ———
-    const startHM      = formatHourMinute(startTime);
-    const durationText = `${minutes}m ${label}`;
-    // Initially “Now” equals the start time (we’ll overwrite “Now …” every tick)
-    process.stdout.write(`Started at ${startHM} — Duration ${durationText} — Now ${startHM}\n`);
-
-    // ——— Print Bar Line 3 (once, at 0%) ———
-    const emptyBar = '░'.repeat(BAR_LENGTH);
-    process.stdout.write(`[${emptyBar}]  0%\n`);
-
-    // Now we set up our interval to update only Lines 2 & 3 each tick:
+    
+    console.log(`\n⏳ ${label} session started (${minutes} minutes)`);
+    console.log(`Started at: ${formatTime(startTime)}`);
+    
     const interval = setInterval(() => {
-      const now     = new Date();
       const elapsed = totalSeconds - remaining;
-      const percent = Math.min(1, elapsed / totalSeconds);
-      const filled  = Math.floor(percent * BAR_LENGTH);
-
-      // 1) Move UP **two lines** (from after Bar Line 3 back to Header Line 2)
-      process.stdout.write('\x1b[2A');
-
-      // 2) Overwrite Header Line 2: “Started at … — Duration … — Now HH:MM AM/PM”
-      const nowHM = formatHourMinute(now);
-      process.stdout.write(`Started at ${startHM} — Duration ${durationText} — Now ${nowHM}\n`);
-
-      // 3) Rebuild the purple→dark-purple gradient bar + percentage, then overwrite Line 3
-      let bar = '';
-      for (let j = 0; j < BAR_LENGTH; j++) {
-        if (j < filled) {
-          // Interpolate t from 0→1 for purple gradient
-          const t = j / (BAR_LENGTH - 1);
-          // Purple1 = (200, 0, 255), Purple2 = (100, 0, 150)
-          const r = Math.round(200 * (1 - t) + 100 * t);
-          const g = 0;
-          const b = Math.round(255 * (1 - t) + 150 * t);
-          bar += `\x1b[38;2;${r};${g};${b}m█`;
-        } else {
-          bar += '░';
-        }
-      }
-      bar += RESET;
-
-      const pctNum = Math.round(percent * 100);
-      const pctStr = `${pctNum < 10 ? ' ' : ''}${pctNum}%`;
-      process.stdout.write(`[${bar}]  ${pctStr}\n`);
-
-      remaining--;
-      if (remaining < 0) {
+      const progress = Math.round((elapsed / totalSeconds) * 100);
+      const remainingMin = Math.ceil(remaining / 60);
+      
+      // Simple progress indicator
+      const bars = Math.floor(progress / 5);
+      const progressBar = '█'.repeat(bars) + '░'.repeat(20 - bars);
+      
+      process.stdout.write(`\r[${progressBar}] ${progress}% - ${remainingMin}m remaining`);
+      
+      if (--remaining < 0) {
         clearInterval(interval);
-        process.stdout.write(`\n${YELLOW}*** ${label} ⏰ Finished! ***${RESET}\n`);
-        notifier.notify({
-          title: `Pomodoro 🍅`,
-          message: `${label} time is up!`,
-          sound: true,
-          wait: false
-        });
-        resolve();
+        console.log(`\n${COLORS.GREEN}✓ ${label} Complete!${COLORS.RESET}`);
+        
+        try {
+          notifier.notify({
+            title: 'Pomodoro 🍅',
+            message: `${label} finished!`,
+            sound: true
+          });
+        } catch (e) {
+          console.log('🔔 Time\'s up!');
+        }
+        
+        setTimeout(resolve, 1000); // Brief pause between sessions
       }
     }, 1000);
   });
 }
 
+async function main() {
+  // Parse command line arguments or use defaults
+  let workMinutes = 25;
+  let breakMinutes = 5;
+  let sessions = 4;
+  
+  const args = process.argv.slice(2);
+  
+  if (args.includes('-h') || args.includes('--help')) {
+    showUsage();
+    return;
+  }
+  
+  if (args.length >= 1) {
+    workMinutes = parseInt(args[0]);
+    if (isNaN(workMinutes) || workMinutes <= 0) {
+      console.error('❌ Invalid work minutes');
+      showUsage();
+      return;
+    }
+  }
+  
+  if (args.length >= 2) {
+    breakMinutes = parseInt(args[1]);
+    if (isNaN(breakMinutes) || breakMinutes <= 0) {
+      console.error('❌ Invalid break minutes');
+      showUsage();
+      return;
+    }
+  }
+  
+  if (args.length >= 3) {
+    sessions = parseInt(args[2]);
+    if (isNaN(sessions) || sessions <= 0) {
+      console.error('❌ Invalid session count');
+      showUsage();
+      return;
+    }
+  }
+  
+  console.log(`${COLORS.CYAN}🍅 Pomodoro Timer Starting${COLORS.RESET}`);
+  console.log(`Work: ${workMinutes}min | Break: ${breakMinutes}min | Sessions: ${sessions}`);
+  console.log(`Press Ctrl+C to stop at any time\n`);
+  
+  const workSeconds = workMinutes * 60;
+  const breakSeconds = breakMinutes * 60;
+  
+  try {
+    for (let i = 1; i <= sessions; i++) {
+      console.log(`${COLORS.CYAN}=== Session ${i}/${sessions} ===${COLORS.RESET}`);
+      
+      await runTimer(workSeconds, 'Work', workMinutes);
+      
+      if (i < sessions) {
+        await runTimer(breakSeconds, 'Break', breakMinutes);
+      }
+    }
+    
+    console.log(`\n${COLORS.CYAN}🎉 All ${sessions} sessions completed! Great work!${COLORS.RESET}`);
+    
+  } catch (error) {
+    console.log('\n⏹️  Timer stopped');
+  }
+}
+
+// Handle Ctrl+C gracefully
+process.on('SIGINT', () => {
+  console.log('\n\n⏹️  Pomodoro timer stopped. Have a great day!');
+  process.exit(0);
+});
 
 main();

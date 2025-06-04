@@ -1,6 +1,7 @@
 {
   "name": "terminal-pomodoro",
   "version": "1.0.0",
+  "description": "A terminal Pomodoro timer with gradient progress bar and desktop notifications",
   "main": "index.js",
   "bin": {
     "pomodoro": "./index.js"
@@ -8,10 +9,22 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "pomodoro",
+    "timer",
+    "cli",
+    "productivity"
+  ],
+  "author": "Sanskarkumar Prasad <psanskarkumar01@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sanskarprasad/terminal-pomodoro.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sanskarprasad/terminal-pomodoro/issues"
+  },
+  "homepage": "https://github.com/sanskarprasad/terminal-pomodoro#readme",
   "dependencies": {
     "inquirer": "^12.6.3",
     "node-notifier": "^10.0.1"
