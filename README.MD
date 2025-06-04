@@ -16,7 +16,7 @@ A beautiful terminal‐based Pomodoro timer with a purple gradient progress bar 
 ## 🚀 Installation
 
 ```bash
-npm install -g terminal-pomodoro
+npm install -g termdoro
 ```
 
 ## 📖 Usage
